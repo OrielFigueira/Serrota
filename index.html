@@ -234,7 +234,7 @@
       box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
       display: flex;
       flex-direction: column;
-      height: 250px;
+      min-height: 250px;
     }
 
     .product-image {
@@ -284,7 +284,7 @@
       letter-spacing: 0.12em;
     }
 
-    .stock-label { font-size: 11px; color: #059669; }
+    .stock-label { font-size: 11px; color: #059669; margin-left: auto; }
 
     .btn-add-cart {
       padding: 7px 10px;
@@ -611,7 +611,7 @@
           <div>
             <div class="footer-col-title">Suporte</div>
             <span class="footer-link" onclick="openPanel('mensagens')">Mensagens</span>
-            <span class="footer-link">E-mail: suporte@serrota.digital</span>
+            <span class="footer-link">E-mail: <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="691a1c19061b1d0c291a0c1b1b061d08470d000e001d0805">[email&#160;protected]</a></span>
           </div>
         </div>
       </footer>
@@ -622,7 +622,7 @@
     <div class="panel" id="panelContent"></div>
   </div>
 
-  <script>
+  <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
     const SUPABASE_URL = "https://tgtphaevkztzgekfhquu.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRndHBoYWV2a3p0emdla2ZocXV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwMjg4NjksImV4cCI6MjA4NzYwNDg2OX0.41aby7i4wEllirV3HJTcsgTOzNtc76oca07VZ7qzlFo";
 
@@ -1100,14 +1100,4 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
       document.getElementById("panelOverlay").style.display = "none";
     }
 
-    document.getElementById("panelOverlay").addEventListener("click", function (e) {
-      if (e.target.id === "panelOverlay") closePanel();
-    });
-
-    window.addEventListener("load", function () {
-      loadProducts();
-      checkSession();
-    });
-  </script>
-</body>
-</html>
+    document.getElementById("panelOverlay").addEventLis
