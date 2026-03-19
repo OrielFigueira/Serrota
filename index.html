@@ -1358,11 +1358,143 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
         "<p style='font-size:13px;color:#6b7280;'>Central para contato e suporte. Integre com uma tabela \"messages\" no Supabase.</p>";
     }
 
-    function renderPurchasesPanel() {
+    function formatOrderDate(dateStr) {
+      if (!dateStr) return "—";
+      var d = new Date(dateStr);
+      var pad = function(n) { return n < 10 ? "0" + n : n; };
+      return pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear() +
+             " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+    }
+
+    function getOrderDisplayStatus(order) {
+      if (order.status === "unpaid") {
+        return { label: "Aguardando pagamento", color: "#d97706", bg: "#fffbeb", border: "#fde68a", icon: "fa-clock" };
+      }
+      if (order.status === "paid") {
+        // Verifica se todos os produtos têm entrega imediata
+        var ids = order.product_ids || [];
+        var allInstant = ids.length > 0 && ids.every(function(item) {
+          var pid = item.id || item;
+          var prod = state.products.find(function(p) { return p.id === pid; });
+          return prod && prod.instant_delivery;
+        });
+        if (allInstant) {
+          return { label: "Entregue", color: "#15803d", bg: "#f0fdf4", border: "#bbf7d0", icon: "fa-circle-check" };
+        }
+        return { label: "Pago", color: "#1d4ed8", bg: "#eff6ff", border: "#bfdbfe", icon: "fa-check" };
+      }
+      return { label: order.status, color: "#6b7280", bg: "#f9fafb", border: "#e5e7eb", icon: "fa-circle" };
+    }
+
+    async function renderPurchasesPanel() {
       var panel = document.getElementById("panelContent");
+
       panel.innerHTML =
         "<div class='panel-header'><h3 class='panel-title'>Minhas compras</h3><button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
-        "<p style='font-size:13px;color:#6b7280;'>Liste aqui os pedidos a partir da tabela \"purchases\" do Supabase.</p>";
+        "<div style='text-align:center;padding:24px 0;'><i class='fa-solid fa-spinner fa-spin' style='font-size:24px;color:#2563eb;'></i></div>";
+
+      if (!state.session || !state.session.user) {
+        panel.innerHTML =
+          "<div class='panel-header'><h3 class='panel-title'>Minhas compras</h3><button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
+          "<p style='font-size:13px;color:#6b7280;'>Faça login para ver suas compras.</p>";
+        return;
+      }
+
+      try {
+        var result = await supabaseClient
+          .from("orders")
+          .select("*")
+          .eq("user_id", state.session.user.id)
+          .order("created_at", { ascending: false });
+
+        if (result.error) throw result.error;
+        var orders = result.data || [];
+
+        var html =
+          "<div class='panel-header'><h3 class='panel-title'>Minhas compras</h3><button class='panel-close' onclick='closePanel()'>&times;</button></div>";
+
+        if (!orders.length) {
+          html += "<p style='font-size:13px;color:#6b7280;'>Nenhuma compra encontrada.</p>";
+          panel.innerHTML = html;
+          return;
+        }
+
+        orders.forEach(function(order) {
+          var st = getOrderDisplayStatus(order);
+          var ids = order.product_ids || [];
+          var dateStr = formatOrderDate(order.created_at);
+
+          // Montar lista de produtos
+          var prodListHtml = "";
+          ids.forEach(function(item) {
+            var pid = item.id || item;
+            var qty = item.quantity || 1;
+            var prod = state.products.find(function(p) { return p.id === pid; });
+            var prodName = prod ? prod.name : "Produto #" + String(pid).slice(0, 8);
+            var prodPrice = prod ? (prod.price * qty).toFixed(2).replace(".", ",") : "—";
+            prodListHtml +=
+              "<div style='display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f3f4f6;font-size:12px;'>" +
+                "<span style='color:#374151;'>" + prodName + " <span style='color:#9ca3af;'>x" + qty + "</span></span>" +
+                "<span style='font-weight:600;color:#1d4ed8;'>R$ " + prodPrice + "</span>" +
+              "</div>";
+          });
+
+          // Botão devolução: desabilitado após 24h da compra
+          var createdAt = order.created_at ? new Date(order.created_at) : null;
+          var hoursElapsed = createdAt ? (Date.now() - createdAt.getTime()) / (1000 * 60 * 60) : 999;
+          var canRefund = order.status === "paid" && hoursElapsed < 24;
+          var refundBtn =
+            "<button onclick='handleRefundRequest(\"" + order.id + "\")' " +
+            "style='margin-top:10px;width:100%;padding:7px 12px;border-radius:8px;border:none;" +
+            "background:" + (canRefund ? "#fee2e2" : "#f3f4f6") + ";" +
+            "color:" + (canRefund ? "#b91c1c" : "#9ca3af") + ";" +
+            "font-size:12px;font-weight:600;cursor:" + (canRefund ? "pointer" : "not-allowed") + ";'" +
+            (canRefund ? "" : " disabled") + ">" +
+            "<i class='fa-solid fa-rotate-left' style='margin-right:5px;'></i>" +
+            (canRefund ? "Solicitar devolução" : "Devolução indisponível (prazo encerrado)") +
+            "</button>";
+
+          html +=
+            "<div style='border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px;'>" +
+
+              // Header: status + data
+              "<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;'>" +
+                "<span style='display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;" +
+                  "background:" + st.bg + ";border:1px solid " + st.border + ";font-size:11px;font-weight:700;color:" + st.color + ";'>" +
+                  "<i class='fa-solid " + st.icon + "'></i>" + st.label +
+                "</span>" +
+                "<span style='font-size:11px;color:#9ca3af;'>" + dateStr + "</span>" +
+              "</div>" +
+
+              // Produtos
+              "<div style='margin-bottom:8px;'>" + prodListHtml + "</div>" +
+
+              // Total
+              "<div style='display:flex;justify-content:space-between;align-items:center;padding-top:6px;'>" +
+                "<span style='font-size:12px;color:#6b7280;'>Total do pedido</span>" +
+                "<strong style='font-size:14px;color:#111827;'>R$ " + (order.total || 0).toFixed(2).replace(".", ",") + "</strong>" +
+              "</div>" +
+
+              // Botão devolução (só para pedidos pagos)
+              (order.status === "paid" ? refundBtn : "") +
+
+            "</div>";
+        });
+
+        panel.innerHTML = html;
+
+      } catch(e) {
+        console.error(e);
+        panel.innerHTML =
+          "<div class='panel-header'><h3 class='panel-title'>Minhas compras</h3><button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
+          "<p style='font-size:13px;color:#b91c1c;'>Erro ao carregar compras.</p>";
+      }
+    }
+
+    function handleRefundRequest(orderId) {
+      if (!confirm("Confirma a solicitação de devolução deste pedido?")) return;
+      alert("Solicitação de devolução enviada! Nossa equipe entrará em contato em breve.");
+      // Aqui você pode integrar com um sistema de suporte ou enviar email
     }
 
     function renderNotificationsPanel() {
