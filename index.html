@@ -1140,21 +1140,7 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
 
           if (result.data.status === "paid") {
             stopPixPolling();
-            // Deduzir estoque de cada produto comprado
-            for (var k = 0; k < cartSnapshot.length; k++) {
-              var it = cartSnapshot[k];
-              if (it.stock == null) continue; // sem controle de estoque
-              try {
-                // Busca estoque atual e subtrai
-                var prod = await supabaseClient.from("products").select("stock").eq("id", it.id).single();
-                if (prod.data && prod.data.stock != null) {
-                  var newStock = Math.max(0, prod.data.stock - it.quantity);
-                  await supabaseClient.from("products").update({ stock: newStock }).eq("id", it.id);
-                }
-              } catch(se) { console.warn("Erro ao deduzir estoque:", se); }
-            }
-            // Recarregar produtos para refletir estoque atualizado
-            loadProducts();
+            loadProducts(); // recarrega produtos para refletir estoque atualizado
             showPixSuccess();
           } else if (result.data.status === "failed") {
             stopPixPolling();
