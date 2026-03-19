@@ -1351,11 +1351,88 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
       activate("login");
     }
 
-    function renderMessagesPanel() {
+    async function renderMessagesPanel() {
       var panel = document.getElementById("panelContent");
+
       panel.innerHTML =
         "<div class='panel-header'><h3 class='panel-title'>Mensagens</h3><button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
-        "<p style='font-size:13px;color:#6b7280;'>Central para contato e suporte. Integre com uma tabela \"messages\" no Supabase.</p>";
+        "<div style='text-align:center;padding:24px 0;'><i class='fa-solid fa-spinner fa-spin' style='font-size:24px;color:#2563eb;'></i></div>";
+
+      if (!state.session || !state.session.user) {
+        panel.innerHTML =
+          "<div class='panel-header'><h3 class='panel-title'>Mensagens</h3><button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
+          "<p style='font-size:13px;color:#6b7280;'>Faça login para ver suas mensagens.</p>";
+        return;
+      }
+
+      try {
+        var result = await supabaseClient
+          .from("messages")
+          .select("*")
+          .eq("user_id", state.session.user.id)
+          .order("created_at", { ascending: false });
+
+        if (result.error) throw result.error;
+        var messages = result.data || [];
+
+        var html =
+          "<div class='panel-header'><h3 class='panel-title'>Mensagens</h3><button class='panel-close' onclick='closePanel()'>&times;</button></div>";
+
+        if (!messages.length) {
+          html += "<p style='font-size:13px;color:#6b7280;'>Nenhuma mensagem ainda.</p>";
+          panel.innerHTML = html;
+          return;
+        }
+
+        messages.forEach(function(msg) {
+          var dateStr = formatOrderDate(msg.created_at);
+          // Converter quebras de linha em <br> e preservar espaços de indentação
+          var contentHtml = msg.content
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\n/g, "<br>")
+            .replace(/ {3}/g, "&nbsp;&nbsp;&nbsp;");
+
+          html +=
+            "<div style='border:1px solid " + (msg.read ? "#e5e7eb" : "#bfdbfe") + ";border-radius:12px;padding:14px;margin-bottom:12px;background:" + (msg.read ? "#fff" : "#eff6ff") + ";'>" +
+              "<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;'>" +
+                "<span style='font-size:12px;font-weight:600;color:" + (msg.read ? "#6b7280" : "#1d4ed8") + ";'>" +
+                  (msg.read ? "" : "<i class='fa-solid fa-circle' style='font-size:7px;margin-right:5px;color:#2563eb;'></i>") +
+                  "Entrega de produtos" +
+                "</span>" +
+                "<span style='font-size:11px;color:#9ca3af;'>" + dateStr + "</span>" +
+              "</div>" +
+              "<div style='font-size:12px;color:#374151;line-height:1.8;'>" + contentHtml + "</div>" +
+              (!msg.read
+                ? "<button onclick='markMessageRead(\"" + msg.id + "\", this)' style='margin-top:8px;font-size:11px;color:#2563eb;background:none;border:none;cursor:pointer;padding:0;'>Marcar como lida</button>"
+                : "") +
+            "</div>";
+        });
+
+        panel.innerHTML = html;
+
+        // Marcar todas como lidas automaticamente após 3s
+        var unreadIds = messages.filter(function(m) { return !m.read; }).map(function(m) { return m.id; });
+        if (unreadIds.length) {
+          setTimeout(async function() {
+            await supabaseClient.from("messages").update({ read: true }).in("id", unreadIds);
+          }, 3000);
+        }
+
+      } catch(e) {
+        console.error(e);
+        panel.innerHTML =
+          "<div class='panel-header'><h3 class='panel-title'>Mensagens</h3><button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
+          "<p style='font-size:13px;color:#b91c1c;'>Erro ao carregar mensagens.</p>";
+      }
+    }
+
+    async function markMessageRead(msgId, btn) {
+      await supabaseClient.from("messages").update({ read: true }).eq("id", msgId);
+      if (btn) btn.parentElement.style.background = "#fff";
+      if (btn) btn.parentElement.style.borderColor = "#e5e7eb";
+      if (btn) btn.remove();
     }
 
     function formatOrderDate(dateStr) {
