@@ -846,7 +846,16 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
       }
     }
 
+    function getStock(productId) {
+      var p = state.products.find(function(x) { return x.id === productId; });
+      console.log("[getStock] productId:", productId, "| produto encontrado:", p ? p.name : "NÃO ENCONTRADO", "| stock:", p ? p.stock : "N/A");
+      if (!p) return Infinity;
+      return (p.stock != null) ? p.stock : Infinity;
+    }
+
     function addToCart(product) {
+      var maxStock = getStock(product.id);
+      console.log("[addToCart] produto:", product.name, "| id:", product.id, "| maxStock:", maxStock);
       var exists = null;
       for (var i = 0; i < state.cart.length; i++) {
         if (state.cart[i].product.id === product.id) {
@@ -855,9 +864,14 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
         }
       }
       if (exists) {
-        exists.quantity += 1;
+        console.log("[addToCart] já no carrinho, qty atual:", exists.quantity, "| maxStock:", maxStock, "| pode adicionar:", exists.quantity < maxStock);
+        if (exists.quantity < maxStock) {
+          exists.quantity += 1;
+        }
       } else {
-        state.cart.push({ product: product, quantity: 1 });
+        if (maxStock > 0) {
+          state.cart.push({ product: product, quantity: 1 });
+        }
       }
       openPanel("carrinho");
     }
@@ -877,16 +891,19 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
         var item = state.cart[i];
         var lineTotal = item.product.price * item.quantity;
         total += lineTotal;
+        var currentStock = getStock(item.product.id);
+        var atMax = (currentStock !== Infinity && item.quantity >= currentStock);
+        var stockInfo = currentStock !== Infinity ? " <span style='color:#9ca3af;'>(max: " + currentStock + ")</span>" : "";
         itemsHtml +=
           "<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:13px;'>" +
             "<div>" +
               "<div style='font-weight:500;'>" + item.product.name + "</div>" +
-              "<div style='color:#6b7280;'>Qtd: " + item.quantity + "</div>" +
+              "<div style='color:#6b7280;'>Qtd: " + item.quantity + stockInfo + "</div>" +
             "</div>" +
             "<div style='display:flex;align-items:center;gap:6px;'>" +
               "<button style='width:24px;height:24px;border-radius:999px;border:1px solid #d1d5db;background:#f9fafb;cursor:pointer;' onclick='changeCartQty(" + i + ",-1)'>-</button>" +
               "<span>" + item.quantity + "</span>" +
-              "<button style='width:24px;height:24px;border-radius:999px;border:1px solid #d1d5db;background:#f9fafb;cursor:pointer;' onclick='changeCartQty(" + i + ",1)'>+</button>" +
+              "<button style='width:24px;height:24px;border-radius:999px;border:1px solid #d1d5db;background:" + (atMax ? "#e5e7eb" : "#f9fafb") + ";cursor:" + (atMax ? "not-allowed" : "pointer") + ";' onclick='changeCartQty(" + i + ",1)'" + (atMax ? " disabled" : "") + ">+</button>" +
               "<div style='font-weight:600;color:#1d4ed8;margin-left:8px;'>R$ " +
                 lineTotal.toFixed(2).replace('.', ',') +
               "</div>" +
@@ -907,6 +924,13 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
     function changeCartQty(index, delta) {
       var item = state.cart[index];
       if (!item) return;
+      if (delta > 0) {
+        var maxStock = getStock(item.product.id);
+        if (item.quantity >= maxStock) {
+          renderCartPanel();
+          return;
+        }
+      }
       item.quantity += delta;
       if (item.quantity <= 0) {
         state.cart.splice(index, 1);
@@ -963,7 +987,13 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
             "Content-Type": "application/json",
             "Authorization": "Bearer " + state.session.access_token
           },
-          body: JSON.stringify({ items: items, total: total })
+      body: JSON.stringify({
+            items: items,
+            total: total,
+            product_ids: state.cart.map(function(i) {
+              return { id: i.product.id, quantity: i.quantity };
+            })
+          })
         });
 
         var data = await response.json();
@@ -1040,6 +1070,22 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
       if (data.payment_id) {
         startPixPolling(data.payment_id, data.order_id);
       }
+
+      // Agendar deleção do pedido se não for pago em 30 min
+      if (data.order_id) {
+        var msUntilExpiry = expiresAt - Date.now();
+        if (msUntilExpiry < 0) msUntilExpiry = 30 * 60 * 1000;
+        setTimeout(async function() {
+          if (!supabaseClient) return;
+          try {
+            var chk = await supabaseClient.from("orders").select("status").eq("id", data.order_id).single();
+            if (chk.data && chk.data.status === "unpaid") {
+              await supabaseClient.from("orders").delete().eq("id", data.order_id).eq("status", "unpaid");
+              console.log("Pedido expirado deletado:", data.order_id);
+            }
+          } catch(e) { console.warn("Erro ao deletar pedido expirado:", e); }
+        }, msUntilExpiry + 5000);
+      }
     }
 
     function copyPixCode() {
@@ -1075,7 +1121,11 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
 
     function startPixPolling(paymentId, orderId) {
       stopPixPolling();
-      // Verificar a cada 5 segundos
+      // Capturar snapshot do carrinho agora (antes de ser limpo)
+      var cartSnapshot = state.cart.map(function(i) {
+        return { id: i.product.id, quantity: i.quantity, stock: i.product.stock };
+      });
+
       pixPollInterval = setInterval(async function() {
         try {
           if (!supabaseClient || !orderId) return;
@@ -1089,6 +1139,21 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
 
           if (result.data.status === "paid") {
             stopPixPolling();
+            // Deduzir estoque de cada produto comprado
+            for (var k = 0; k < cartSnapshot.length; k++) {
+              var it = cartSnapshot[k];
+              if (it.stock == null) continue; // sem controle de estoque
+              try {
+                // Busca estoque atual e subtrai
+                var prod = await supabaseClient.from("products").select("stock").eq("id", it.id).single();
+                if (prod.data && prod.data.stock != null) {
+                  var newStock = Math.max(0, prod.data.stock - it.quantity);
+                  await supabaseClient.from("products").update({ stock: newStock }).eq("id", it.id);
+                }
+              } catch(se) { console.warn("Erro ao deduzir estoque:", se); }
+            }
+            // Recarregar produtos para refletir estoque atualizado
+            loadProducts();
             showPixSuccess();
           } else if (result.data.status === "failed") {
             stopPixPolling();
