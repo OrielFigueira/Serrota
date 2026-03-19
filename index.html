@@ -985,7 +985,8 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": "Bearer " + state.session.access_token
+            "Authorization": "Bearer " + state.session.access_token,
+            "apikey": SUPABASE_ANON_KEY
           },
       body: JSON.stringify({
             items: items,
