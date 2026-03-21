@@ -2076,4 +2076,14 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
       if (e.target === this) closePanel();
     });
 
-    window.addEventListener("DOMContentLoaded
+    window.addEventListener("DOMContentLoaded", function () {
+      checkSession();
+      loadProducts();
+      // Verificar badge de mensagens a cada 30s
+      setInterval(function() {
+        if (state.session) updateMessageBadge();
+      }, 30000);
+    });
+  </script>
+</body>
+</html>
