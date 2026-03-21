@@ -530,11 +530,13 @@
       <nav class="header-center"></nav>
 
       <div class="header-right">
-        <button class="icon-btn" onclick="openPanel('mensagens')" title="Mensagens">
+        <button class="icon-btn" id="msgIconBtn" onclick="openPanel('mensagens')" title="Mensagens" style="position:relative;">
           <i class="fa-regular fa-message"></i>
+          <span id="msgBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;border-radius:999px;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 3px;">0</span>
         </button>
-        <button class="icon-btn" onclick="openPanel('notificacoes')" title="Notificacoes">
-          <i class="fa-regular fa-bell"></i>
+        <button class="icon-btn" onclick="openPanel('compras')" title="Minhas Compras" style="width:auto;padding:0 12px;font-size:12px;font-weight:600;gap:5px;display:flex;align-items:center;">
+          <i class="fa-solid fa-bag-shopping"></i>
+          <span>Minhas compras</span>
         </button>
         <button class="icon-btn" onclick="openPanel('carrinho')" title="Carrinho">
           <i class="fa-solid fa-cart-shopping"></i>
@@ -917,7 +919,7 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
         "<hr style='border:none;border-top:1px solid #e5e7eb;margin:10px 0;' />" +
         "<div style='display:flex;justify-content:space-between;align-items:center;font-size:14px;margin-bottom:10px;'>" +
         "<span>Total</span><strong>R$ " + total.toFixed(2).replace('.', ',') + "</strong></div>" +
-        "<button class='btn-primary' style='width:100%;' onclick='payWithPix()'>Finalizar com Pix (Mercado Pago)</button>" +
+        "<button class='btn-primary' style='width:100%;' onclick='showTermsBeforePix()'>Finalizar com Pix (Mercado Pago)</button>" +
         "<p style='font-size:11px;color:#6b7280;margin-top:6px;'>O pagamento e processado via Mercado Pago. Depois da confirmacao, voce recebe acesso imediato.</p>";
     }
 
@@ -1184,6 +1186,7 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
       var result = await supabaseClient.auth.getSession();
       state.session = result.data.session;
       updateAccountLabel();
+      if (state.session) updateMessageBadge();
     }
 
     function updateAccountLabel() {
@@ -1447,8 +1450,10 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
       if (order.status === "unpaid") {
         return { label: "Aguardando pagamento", color: "#d97706", bg: "#fffbeb", border: "#fde68a", icon: "fa-clock" };
       }
+      if (order.status === "cancelled") {
+        return { label: "Cancelado", color: "#6b7280", bg: "#f9fafb", border: "#e5e7eb", icon: "fa-xmark" };
+      }
       if (order.status === "paid") {
-        // Verifica se todos os produtos têm entrega imediata
         var ids = order.product_ids || [];
         var allInstant = ids.length > 0 && ids.every(function(item) {
           var pid = item.id || item;
@@ -1480,7 +1485,7 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
       try {
         var result = await supabaseClient
           .from("orders")
-          .select("*")
+          .select("id, user_id, product_ids, total, status, created_at, paid_at, mp_qr_code, mp_qr_base64")
           .eq("user_id", state.session.user.id)
           .order("created_at", { ascending: false });
 
@@ -1555,6 +1560,22 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
               // Botão devolução (só para pedidos pagos)
               (order.status === "paid" ? refundBtn : "") +
 
+              // Fix 4+5: Botão ver QR para pedidos unpaid
+              (order.status === "unpaid" ? (function() {
+                var createdAt = order.created_at ? new Date(order.created_at) : null;
+                var expiresAt = createdAt ? new Date(createdAt.getTime() + 30 * 60 * 1000) : null;
+                var expired = !expiresAt || Date.now() > expiresAt.getTime();
+                if (expired) {
+                  return "<button onclick='cancelExpiredOrder(\"" + order.id + "\")' style='margin-top:10px;width:100%;padding:7px 12px;border-radius:8px;border:none;background:#fee2e2;color:#b91c1c;font-size:12px;font-weight:600;cursor:pointer;'>" +
+                    "<i class='fa-solid fa-xmark' style='margin-right:5px;'></i>Pedido expirado — clique para cancelar</button>";
+                }
+                var expiresStr = expiresAt ? expiresAt.toISOString() : "";
+                var qrCode = (order.mp_qr_code || "").replace(/'/g, "\\'");
+                var qrBase64 = (order.mp_qr_base64 || "").replace(/'/g, "\\'");
+                return "<button onclick='viewPendingOrder(\"" + order.id + "\",\"" + qrCode + "\",\"" + qrBase64 + "\",\"" + expiresStr + "\")' style='margin-top:10px;width:100%;padding:7px 12px;border-radius:8px;border:none;background:#fffbeb;border:1px solid #fde68a;color:#d97706;font-size:12px;font-weight:600;cursor:pointer;'>" +
+                  "<i class='fa-solid fa-qrcode' style='margin-right:5px;'></i>Ver QR Code para pagar</button>";
+              })() : "") +
+
             "</div>";
         });
 
@@ -1569,9 +1590,144 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
     }
 
     function handleRefundRequest(orderId) {
-      if (!confirm("Confirma a solicitação de devolução deste pedido?")) return;
-      alert("Solicitação de devolução enviada! Nossa equipe entrará em contato em breve.");
-      // Aqui você pode integrar com um sistema de suporte ou enviar email
+      // Fix 3: sempre mostra o modal, nunca usa confirm() que pode ser bloqueado
+      var overlay = document.createElement("div");
+      overlay.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9999;display:flex;align-items:center;justify-content:center;";
+      overlay.innerHTML =
+        "<div style='background:#fff;border-radius:16px;padding:28px 24px;max-width:380px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.2);'>" +
+          "<h3 style='font-size:17px;font-weight:700;margin-bottom:10px;'>Solicitar devolução</h3>" +
+          "<p style='font-size:13px;color:#6b7280;margin-bottom:20px;line-height:1.6;'>Confirma a solicitação de devolução deste pedido? Nossa equipe entrará em contato em até 24h úteis.</p>" +
+          "<div style='display:flex;gap:10px;'>" +
+            "<button id='refundCancel' style='flex:1;padding:10px;border-radius:8px;border:1px solid #e5e7eb;background:#f9fafb;font-size:13px;font-weight:600;cursor:pointer;'>Cancelar</button>" +
+            "<button id='refundConfirm' style='flex:1;padding:10px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-size:13px;font-weight:600;cursor:pointer;'>Confirmar</button>" +
+          "</div>" +
+        "</div>";
+      document.body.appendChild(overlay);
+      overlay.querySelector("#refundCancel").onclick = function() { document.body.removeChild(overlay); };
+      overlay.querySelector("#refundConfirm").onclick = function() {
+        document.body.removeChild(overlay);
+        var thanks = document.createElement("div");
+        thanks.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9999;display:flex;align-items:center;justify-content:center;";
+        thanks.innerHTML =
+          "<div style='background:#fff;border-radius:16px;padding:28px 24px;max-width:360px;width:90%;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,.2);'>" +
+            "<div style='width:56px;height:56px;background:#fee2e2;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;'>" +
+              "<i class='fa-solid fa-rotate-left' style='font-size:22px;color:#ef4444;'></i>" +
+            "</div>" +
+            "<h3 style='font-size:16px;font-weight:700;margin-bottom:8px;'>Solicitação enviada!</h3>" +
+            "<p style='font-size:13px;color:#6b7280;margin-bottom:18px;'>Nossa equipe entrará em contato em breve pelo e-mail cadastrado.</p>" +
+            "<button id='thanksClose' style='padding:10px 24px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-size:13px;font-weight:600;cursor:pointer;'>Ok</button>" +
+          "</div>";
+        document.body.appendChild(thanks);
+        thanks.querySelector("#thanksClose").onclick = function() { document.body.removeChild(thanks); };
+      };
+    }
+
+    // Fix 6: Mostrar termos antes de gerar Pix
+    function showTermsBeforePix() {
+      if (!state.session || !state.session.user) {
+        alert("Você precisa estar logado para finalizar a compra.");
+        openPanel("conta");
+        return;
+      }
+      if (!state.cart.length) return;
+
+      var total = state.cart.reduce(function(sum, i) { return sum + i.product.price * i.quantity; }, 0);
+      total = Math.round(total * 100) / 100;
+
+      var overlay = document.createElement("div");
+      overlay.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9999;display:flex;align-items:center;justify-content:center;";
+      overlay.innerHTML =
+        "<div style='background:#fff;border-radius:16px;padding:28px 24px;max-width:460px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto;'>" +
+          "<h3 style='font-size:17px;font-weight:700;margin-bottom:14px;'>Termos da compra</h3>" +
+          "<div style='background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px;font-size:12px;color:#374151;line-height:1.8;margin-bottom:16px;max-height:220px;overflow-y:auto;'>" +
+            "<strong>1. Produtos digitais</strong><br>Todos os produtos vendidos nesta plataforma são de natureza digital. Após a confirmação do pagamento, o acesso é liberado imediatamente e de forma irrevogável.<br><br>" +
+            "<strong>2. Política de devolução</strong><br>Solicitações de devolução são aceitas em até 24 horas após a compra, desde que o produto não tenha sido acessado ou utilizado. O reembolso será processado em até 5 dias úteis.<br><br>" +
+            "<strong>3. Uso permitido</strong><br>Os produtos adquiridos são de uso pessoal e intransferível. É proibida a redistribuição, revenda ou compartilhamento sem autorização prévia.<br><br>" +
+            "<strong>4. Pagamento via Pix</strong><br>O QR Code gerado tem validade de 30 minutos. Após esse período, o pedido é cancelado automaticamente e um novo pedido deve ser criado.<br><br>" +
+            "<strong>5. Suporte</strong><br>Em caso de dúvidas ou problemas, entre em contato pelo canal de mensagens da plataforma." +
+          "</div>" +
+          "<label style='display:flex;align-items:center;gap:10px;font-size:13px;color:#374151;cursor:pointer;margin-bottom:18px;'>" +
+            "<input type='checkbox' id='termsCheck' style='width:16px;height:16px;cursor:pointer;'>" +
+            "<span>Li e aceito os termos da compra</span>" +
+          "</label>" +
+          "<div style='display:flex;gap:10px;'>" +
+            "<button id='termsCancelBtn' style='flex:1;padding:10px;border-radius:8px;border:1px solid #e5e7eb;background:#f9fafb;font-size:13px;font-weight:600;cursor:pointer;'>Cancelar</button>" +
+            "<button id='termsConfirmBtn' style='flex:1;padding:10px;border-radius:8px;border:none;background:#9ca3af;color:#fff;font-size:13px;font-weight:600;cursor:not-allowed;' disabled>Finalizar com Pix</button>" +
+          "</div>" +
+        "</div>";
+      document.body.appendChild(overlay);
+
+      var checkbox = overlay.querySelector("#termsCheck");
+      var confirmBtn = overlay.querySelector("#termsConfirmBtn");
+      checkbox.onchange = function() {
+        if (checkbox.checked) {
+          confirmBtn.style.background = "#2563eb";
+          confirmBtn.style.cursor = "pointer";
+          confirmBtn.disabled = false;
+        } else {
+          confirmBtn.style.background = "#9ca3af";
+          confirmBtn.style.cursor = "not-allowed";
+          confirmBtn.disabled = true;
+        }
+      };
+      overlay.querySelector("#termsCancelBtn").onclick = function() { document.body.removeChild(overlay); };
+      confirmBtn.onclick = function() {
+        document.body.removeChild(overlay);
+        payWithPix();
+      };
+    }
+
+    // Fix 4+5: Ver QR code de pedido pendente ou cancelar se expirado
+    async function viewPendingOrder(orderId, qrCode, qrBase64, expiresAt) {
+      var expDate = new Date(expiresAt);
+      var now = Date.now();
+
+      // Se expirou, cancela e atualiza a tela
+      if (now > expDate.getTime()) {
+        await supabaseClient.from("orders").update({ status: "cancelled" }).eq("id", orderId).eq("status", "unpaid");
+        renderPurchasesPanel();
+        return;
+      }
+
+      // Mostra o QR novamente
+      var data = {
+        order_id: orderId,
+        payment_id: null,
+        qr_code: qrCode,
+        qr_code_base64: qrBase64,
+        expires_at: expiresAt
+      };
+      var total = 0;
+      // Busca o total do pedido
+      var res = await supabaseClient.from("orders").select("total").eq("id", orderId).single();
+      if (res.data) total = res.data.total;
+      renderPixPanel(data, total);
+    }
+
+    // Fix 1: Verificar mensagens não lidas e atualizar badge
+    async function updateMessageBadge() {
+      if (!supabaseClient || !state.session) return;
+      try {
+        var res = await supabaseClient
+          .from("messages")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", state.session.user.id)
+          .eq("read", false);
+        var count = res.count || 0;
+        var badge = document.getElementById("msgBadge");
+        if (!badge) return;
+        if (count > 0) {
+          badge.textContent = count > 9 ? "9+" : count;
+          badge.style.display = "block";
+        } else {
+          badge.style.display = "none";
+        }
+      } catch(e) {}
+    }
+
+    async function cancelExpiredOrder(orderId) {
+      await supabaseClient.from("orders").update({ status: "cancelled" }).eq("id", orderId).eq("status", "unpaid");
+      renderPurchasesPanel();
     }
 
     function renderNotificationsPanel() {
@@ -1587,7 +1743,7 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
 
       if (type === "carrinho") renderCartPanel();
       else if (type === "conta") renderAccountPanel();
-      else if (type === "mensagens") renderMessagesPanel();
+      else if (type === "mensagens") { renderMessagesPanel(); setTimeout(updateMessageBadge, 3500); }
       else if (type === "compras") renderPurchasesPanel();
       else if (type === "notificacoes") renderNotificationsPanel();
     }
@@ -1603,6 +1759,10 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
     window.addEventListener("DOMContentLoaded", function () {
       checkSession();
       loadProducts();
+      // Fix 1: Verificar badge de mensagens a cada 30s
+      setInterval(function() {
+        if (state.session) updateMessageBadge();
+      }, 30000);
     });
   </script>
 </body>
