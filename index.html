@@ -638,7 +638,7 @@
           <div>
             <div class="footer-col-title">Suporte</div>
             <span class="footer-link" onclick="openPanel('mensagens')">Mensagens</span>
-            <span class="footer-link">E-mail: <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="dba8aeabb4a9afbe9ba8bea9a9b4afbaf5bfb2bcb2afbab7">[email&#160;protected]</a></span>
+            <span class="footer-link"><a href="mailto:tacticsvoxie@gmail.com" style="color:inherit;text-decoration:none;">tacticsvoxie@gmail.com</a></span>
           </div>
         </div>
       </footer>
@@ -1633,6 +1633,19 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
           .from("orders")
           .update({ status: "refund_requested" })
           .eq("id", orderId);
+
+        // Enviar emails de notificação (admin + cliente)
+        try {
+          await fetch("https://tgtphaevkztzgekfhquu.supabase.co/functions/v1/send-notification", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer " + state.session.access_token,
+              "apikey": SUPABASE_ANON_KEY
+            },
+            body: JSON.stringify({ type: "refund_requested", order_id: orderId })
+          });
+        } catch(e) { console.warn("Erro ao enviar notificação de devolução:", e); }
 
         // Mostra confirmação
         var thanks = document.createElement("div");
