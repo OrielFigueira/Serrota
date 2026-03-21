@@ -1570,9 +1570,9 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
                 var expiresAt = createdAt ? new Date(createdAt.getTime() + 30 * 60 * 1000) : null;
                 var expired = !expiresAt || Date.now() > expiresAt.getTime();
                 if (expired) {
-                  // Auto-cancela silenciosamente em background
-                  supabaseClient.from("orders").update({ status: "cancelled" }).eq("id", order.id).eq("status", "unpaid");
-                  return ""; // não renderiza botão, o status já vai aparecer como cancelado no próximo load
+                  // Marca para cancelar após renderizar (não pode fazer async aqui dentro)
+                  order._shouldCancel = true;
+                  return "";
                 }
                 var expiresStr = expiresAt ? expiresAt.toISOString() : "";
                 var qrCode = (order.mp_qr_code || "").replace(/'/g, "\\'");
@@ -1585,6 +1585,16 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
         });
 
         panel.innerHTML = html;
+
+        // Cancelar pedidos expirados e recarregar para mostrar status correto
+        var expiredOrders = orders.filter(function(o) { return o._shouldCancel; });
+        if (expiredOrders.length) {
+          Promise.all(expiredOrders.map(function(o) {
+            return supabaseClient.from("orders").update({ status: "cancelled" }).eq("id", o.id).eq("status", "unpaid");
+          })).then(function() {
+            renderPurchasesPanel();
+          });
+        }
 
       } catch(e) {
         console.error(e);
