@@ -713,7 +713,7 @@
           <div>
             <div class="footer-col-title">Suporte</div>
             <span class="footer-link" onclick="openPanel('mensagens')">Mensagens</span>
-            <span class="footer-link"><a href="mailto:serrotadigital@gmail.com" style="color:inherit;text-decoration:none;">serrotadigital@gmail.com</a></span>
+            <span class="footer-link"><a href="/cdn-cgi/l/email-protection#ef9c8a9d9d809b8e8b8688869b8e83af88828e8683c18c8082" style="color:inherit;text-decoration:none;"><span class="__cf_email__" data-cfemail="03706671716c7762676a646a77626f43646e626a6f2d606c6e">[email&#160;protected]</span></a></span>
           </div>
         </div>
         <div class="footer-bottom">
@@ -728,7 +728,7 @@
     <div class="panel" id="panelContent"></div>
   </div>
 
-  <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+  <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
     const SUPABASE_URL = "https://tgtphaevkztzgekfhquu.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRndHBoYWV2a3p0emdla2ZocXV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwMjg4NjksImV4cCI6MjA4NzYwNDg2OX0.41aby7i4wEllirV3HJTcsgTOzNtc76oca07VZ7qzlFo";
 
@@ -1547,7 +1547,7 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
         return { label: "Cancelado", color: "#6b7280", bg: "#f9fafb", border: "#e5e7eb", icon: "fa-ban" };
       }
       if (order.status === "refund_requested") {
-        return { label: "Devoluãoo solicitada", color: "#7c3aed", bg: "#f5f3ff", border: "#ddd6fe", icon: "fa-rotate-left" };
+        return { label: "Devolução solicitada", color: "#7c3aed", bg: "#f5f3ff", border: "#ddd6fe", icon: "fa-rotate-left" };
       }
       if (order.status === "paid") {
         var ids = order.product_ids || [];
@@ -1629,7 +1629,7 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
             "font-size:12px;font-weight:600;cursor:" + (canRefund ? "pointer" : "not-allowed") + ";'" +
             (canRefund ? "" : " disabled") + ">" +
             "<i class='fa-solid fa-rotate-left' style='margin-right:5px;'></i>" +
-            (canRefund ? "Solicitar devolução" : "Devoluãoo indisponível (prazo encerrado)") +
+            (canRefund ? "Solicitar devolução" : "Devolução indisponível (prazo encerrado)") +
             "</button>";
 
           html +=
@@ -1708,7 +1708,7 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
       overlay.innerHTML =
         "<div style='background:#fff;border-radius:16px;padding:28px 24px;max-width:380px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.2);'>" +
           "<h3 style='font-size:17px;font-weight:700;margin-bottom:10px;'>Solicitar devolução</h3>" +
-          "<p style='font-size:13px;color:#6b7280;margin-bottom:20px;line-height:1.6;'>Confirma a solicitaãoo de devolução deste pedido? Nossa equipe entrará em contato em até 24h úteis.</p>" +
+          "<p style='font-size:13px;color:#6b7280;margin-bottom:20px;line-height:1.6;'>Confirma a solicitação de devolução deste pedido? Nossa equipe entrará em contato em até 24h úteis.</p>" +
           "<div style='display:flex;gap:10px;'>" +
             "<button id='refundCancel' style='flex:1;padding:10px;border-radius:8px;border:1px solid #e5e7eb;background:#f9fafb;font-size:13px;font-weight:600;cursor:pointer;'>Cancelar</button>" +
             "<button id='refundConfirm' style='flex:1;padding:10px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-size:13px;font-weight:600;cursor:pointer;'>Confirmar</button>" +
@@ -1746,7 +1746,7 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
             "<div style='width:56px;height:56px;background:#f5f3ff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;'>" +
               "<i class='fa-solid fa-rotate-left' style='font-size:22px;color:#7c3aed;'></i>" +
             "</div>" +
-            "<h3 style='font-size:16px;font-weight:700;margin-bottom:8px;'>Solicitaãoo enviada!</h3>" +
+            "<h3 style='font-size:16px;font-weight:700;margin-bottom:8px;'>Solicitação enviada!</h3>" +
             "<p style='font-size:13px;color:#6b7280;margin-bottom:18px;'>Nossa equipe entrará em contato em breve pelo e-mail cadastrado.</p>" +
             "<button id='thanksClose' style='padding:10px 24px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-size:13px;font-weight:600;cursor:pointer;'>Ok</button>" +
           "</div>";
@@ -2089,9 +2089,4 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
   <!-- Floating WhatsApp Button -->
   <a href="https://wa.me/5551951525138?text=Ol%C3%A1%2C%20sou%20cliente%20do%20Serrota%20Digital%2C%20pode%20me%20ajudar%3F"
      target="_blank"
-     style="position:fixed;bottom:28px;right:28px;z-index:9999;width:58px;height:58px;border-radius:50%;background:#25d366;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(37,211,102,.5);text-decoration:none;transition:transform .2s;"
-     onmouseover="this.style.transform='scale(1.1)'"
-     onmouseout="this.style.transform='scale(1)'">
-    <i class="fa-brands fa-whatsapp" style="font-size:30px;color:#fff;"></i>
-  </a>
-</html>
+     style="position:fixed;bottom:28px;right:28px;z-index:9999;width:58px;height:58px;border-radius:50%;background:#25d366;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(37,211
