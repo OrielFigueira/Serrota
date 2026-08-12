@@ -1149,19 +1149,65 @@ async function payWithCrypto() {
         "<i class='fa-brands fa-bitcoin' style='font-size:30px;color:#f7931a;'></i>" +
       "</div>" +
       "<p style='font-size:13px;color:#374151;font-weight:600;margin-bottom:4px;'>Tudo pronto!</p>" +
-      "<p style='font-size:12px;color:#6b7280;line-height:1.5;'>Você será redirecionado ao checkout do <strong>ZeroCryptoPay</strong> para concluir o pagamento.</p>" +
+      "<p style='font-size:12px;color:#6b7280;line-height:1.5;'>Clique no botão abaixo para gerar a sua fatura de pagamento.</p>" +
     "</div>" +
 
-    "<a href='https://zerocryptopay.com' target='_blank' " +
-      "style='display:block;width:100%;padding:12px;border-radius:10px;border:none;background:#f7931a;color:#fff;font-size:14px;font-weight:600;cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box;'>" +
-      "<i class='fa-solid fa-arrow-up-right-from-square' style='margin-right:6px;'></i>Ir para o ZeroCryptoPay (" + totalUsdt + " USDT)" +
-    "</a>" +
-    "<p style='font-size:11px;color:#9ca3af;text-align:center;margin-top:8px;'>Uma nova aba será aberta. Após o pagamento, volte aqui para verificar suas compras.</p>";
+    // AQUI ESTÁ A ALTERAÇÃO: Entra o botão chamando a função de geração de cobrança
+    "<button onclick='generateCryptoInvoice(" + totalUsdt + ")' " +
+      "style='display:block;width:100%;padding:12px;border-radius:10px;border:none;background:#f7931a;color:#fff;font-size:14px;font-weight:600;cursor:pointer;text-align:center;box-sizing:border-box;'>" +
+      "<i class='fa-solid fa-lock' style='margin-right:6px;'></i>Pagar " + totalUsdt + " USDT" +
+    "</button>" +
+    "<p style='font-size:11px;color:#9ca3af;text-align:center;margin-top:8px;'>Sua fatura será gerada para conclusão do pagamento.</p>";
 }
 
 // 4. Redirecionamento Final
-function generateCryptoInvoice(amountUsdt) {
-  window.open("https://zerocryptopay.com", "_blank");
+async function generateCryptoInvoice(amountUsdt) {
+  var panel = document.getElementById("panelContent");
+
+  // Feedback visual de carregamento
+  panel.innerHTML =
+    "<div class='panel-header'><h3 class='panel-title'>Gerando Fatura...</h3></div>" +
+    "<div style='text-align:center;padding:40px 20px;color:#6b7280;'>" +
+      "<i class='fa-solid fa-spinner fa-spin' style='font-size:24px;margin-bottom:12px;color:#f7931a;'></i>" +
+      "<p style='font-size:13px;'>Criando pedido de " + amountUsdt + " USDT no ZeroCryptoPay...</p>" +
+    "</div>";
+
+  try {
+    // ID Único do Pedido (Ex: Timestamp ou ID da sessão)
+    var orderId = "ORD-" + Date.now();
+
+    // Chamada para a sua Edge Function no Supabase
+    var response = await fetch("https://tgtphaevkztzgekfhquu.supabase.co/functions/v1/create-crypto-invoice", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + (state.session ? state.session.access_token : "")
+      },
+      body: JSON.stringify({
+        amount: amountUsdt,
+        order_id: orderId
+      })
+    });
+
+    var data = await response.json();
+
+    // Verificação da resposta da API
+    if (data.status && data.url_to_pay) {
+      // Redireciona o cliente diretamente para a URL da fatura gerada
+      window.location.href = data.url_to_pay;
+    } else {
+      throw new Error(data.message || "Código de erro API: " + data.error_code);
+    }
+
+  } catch (error) {
+    console.error("Erro ao gerar pagamento via cripto:", error);
+    alert("Falha ao gerar o pagamento. Tente novamente.");
+    
+    // Recarrega o painel caso falhe
+    if (typeof payWithCrypto === "function") {
+      payWithCrypto();
+    }
+  }
 }
     
     function changeCartQty(index, delta) {
