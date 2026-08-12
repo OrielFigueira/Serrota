@@ -1834,9 +1834,12 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
         };
       });
 
-      var total = state.cart.reduce(function(sum, i) {
+      var originalTotal = state.cart.reduce(function(sum, i) {
         return sum + i.product.price * i.quantity;
       }, 0);
+
+      // Acréscimo de 5.24% (105.24% do valor original)
+      var total = originalTotal * 1.0524;
       total = Math.round(total * 100) / 100;
 
       // Mostrar loading
