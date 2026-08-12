@@ -1073,65 +1073,53 @@ function payWithCrypto() {
   if (!state.cart.length) return;
 
   var panel = document.getElementById("panelContent");
+  if (!panel) return;
 
+  // 1. Calcula o valor total do carrinho em R$
   var totalBrl = state.cart.reduce(function(sum, i) {
     return sum + i.product.price * i.quantity;
   }, 0);
   totalBrl = Math.round(totalBrl * 100) / 100;
 
+  // 2. Taxa de conversão fixa BRL -> USDT (Ex: R$ 5,60 por 1 USDT)
+  var usdtRate = 5.60;
+  var totalUsdt = (totalBrl / usdtRate).toFixed(2);
+
+  // 3. Monta e exibe a tela com o resumo em BRL, Cotação e USDT
   panel.innerHTML =
     "<div class='panel-header'><h3 class='panel-title'>Pagamento por Cripto</h3>" +
     "<button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
-    "<div style='text-align:center;padding:40px 0;'>" +
-      "<i class='fa-solid fa-spinner fa-spin' style='font-size:28px;color:#f7931a;margin-bottom:12px;'></i>" +
-      "<p style='font-size:13px;color:#374151;font-weight:600;'>Obtendo cotação do USDT...</p>" +
-    "</div>";
 
-  fetch("https://economia.awesomeapi.com.br/json/last/USDT-BRL")
-    .then(function(res) { return res.json(); })
-    .then(function(data) {
-      var usdtRate = parseFloat(data.USDTBRL.bid);
-      var totalUsdt = totalBrl / usdtRate;
+    // Card com os valores convertidos
+    "<div style='background:#fff7ed;border:1px solid #ffedd5;border-radius:10px;padding:14px 16px;margin-bottom:16px;'>" +
+      "<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;'>" +
+        "<span style='font-size:13px;color:#c2410c;font-weight:500;'>Total em R$</span>" +
+        "<strong style='font-size:15px;color:#c2410c;'>R$ " + totalBrl.toFixed(2).replace('.', ',') + "</strong>" +
+      "</div>" +
+      "<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:12px;color:#9a3412;'>" +
+        "<span>Cotação USDT</span>" +
+        "<span>1 USDT = R$ " + usdtRate.toFixed(2).replace('.', ',') + "</span>" +
+      "</div>" +
+      "<hr style='border:none;border-top:1px dashed #fed7aa;margin:8px 0;' />" +
+      "<div style='display:flex;justify-content:space-between;align-items:center;'>" +
+        "<span style='font-size:13px;color:#c2410c;font-weight:700;'>Total a pagar</span>" +
+        "<strong style='font-size:18px;color:#c2410c;'>" + totalUsdt + " USDT</strong>" +
+      "</div>" +
+    "</div>" +
 
-      panel.innerHTML =
-        "<div class='panel-header'><h3 class='panel-title'>Pagamento por Cripto</h3>" +
-        "<button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
+    "<div style='text-align:center;margin-bottom:20px;'>" +
+      "<div style='width:64px;height:64px;background:#fff7ed;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;'>" +
+        "<i class='fa-brands fa-bitcoin' style='font-size:30px;color:#f7931a;'></i>" +
+      "</div>" +
+      "<p style='font-size:13px;color:#374151;font-weight:600;margin-bottom:4px;'>Tudo pronto!</p>" +
+      "<p style='font-size:12px;color:#6b7280;line-height:1.5;'>Você será redirecionado ao checkout do <strong>ZeroCryptoPay</strong> para concluir o pagamento.</p>" +
+    "</div>" +
 
-        "<div style='background:#fff7ed;border:1px solid #ffedd5;border-radius:10px;padding:14px 16px;margin-bottom:16px;'>" +
-          "<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;'>" +
-            "<span style='font-size:13px;color:#c2410c;font-weight:500;'>Total em R$</span>" +
-            "<strong style='font-size:15px;color:#c2410c;'>R$ " + totalBrl.toFixed(2).replace('.', ',') + "</strong>" +
-          "</div>" +
-          "<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:12px;color:#9a3412;'>" +
-            "<span>Cotação USDT</span>" +
-            "<span>1 USDT = R$ " + usdtRate.toFixed(2).replace('.', ',') + "</span>" +
-          "</div>" +
-          "<hr style='border:none;border-top:1px dashed #fed7aa;margin:8px 0;' />" +
-          "<div style='display:flex;justify-content:space-between;align-items:center;'>" +
-            "<span style='font-size:13px;color:#c2410c;font-weight:700;'>Total em USDT</span>" +
-            "<strong style='font-size:18px;color:#c2410c;'>" + totalUsdt.toFixed(2) + " USDT</strong>" +
-          "</div>" +
-        "</div>" +
-
-        "<div style='text-align:center;margin-bottom:20px;'>" +
-          "<div style='width:64px;height:64px;background:#fff7ed;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;'>" +
-            "<i class='fa-brands fa-bitcoin' style='font-size:30px;color:#f7931a;'></i>" +
-          "</div>" +
-          "<p style='font-size:13px;color:#374151;font-weight:600;margin-bottom:4px;'>Tudo pronto!</p>" +
-          "<p style='font-size:12px;color:#6b7280;line-height:1.5;'>Você será redirecionado ao checkout do <strong>ZeroCryptoPay</strong> para concluir o pagamento.</p>" +
-        "</div>" +
-
-        "<button onclick='generateCryptoInvoice(" + totalUsdt.toFixed(2) + ")' " +
-          "style='display:block;width:100%;padding:12px;border-radius:10px;border:none;background:#f7931a;color:#fff;font-size:14px;font-weight:600;cursor:pointer;text-align:center;box-sizing:border-box;'>" +
-          "<i class='fa-solid fa-arrow-up-right-from-square' style='margin-right:6px;'></i>Ir para o ZeroCryptoPay (" + totalUsdt.toFixed(2) + " USDT)" +
-        "</button>" +
-        "<p style='font-size:11px;color:#9ca3af;text-align:center;margin-top:8px;'>Uma nova aba será aberta. Após o pagamento, volte aqui para verificar suas compras.</p>";
-    })
-    .catch(function(err) {
-      console.error("Erro ao obter cotação USDT:", err);
-      alert("Não foi possível obter a cotação do USDT no momento. Tente novamente.");
-      renderCartPanel();
-    });
+    "<a href='https://zerocryptopay.com' target='_blank' " +
+      "style='display:block;width:100%;padding:12px;border-radius:10px;border:none;background:#f7931a;color:#fff;font-size:14px;font-weight:600;cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box;'>" +
+      "<i class='fa-solid fa-arrow-up-right-from-square' style='margin-right:6px;'></i>Ir para o ZeroCryptoPay (" + totalUsdt + " USDT)" +
+    "</a>" +
+    "<p style='font-size:11px;color:#9ca3af;text-align:center;margin-top:8px;'>Uma nova aba será aberta. Após o pagamento, volte aqui para verificar suas compras.</p>";
 }
 
 // 4. Redirecionamento Final
