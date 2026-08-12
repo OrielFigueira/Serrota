@@ -963,50 +963,51 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
     }
 
     function renderCartPanel() {
-      var panel = document.getElementById("panelContent");
-      if (!state.cart.length) {
-        panel.innerHTML =
-          "<div class='panel-header'><h3 class='panel-title'>Carrinho de compras</h3><button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
-          "<p style='font-size:13px;color:#6b7280;'>Seu carrinho esta vazio.</p>";
-        return;
-      }
+  var panel = document.getElementById("panelContent");
+  if (!state.cart.length) {
+    panel.innerHTML =
+      "<div class='panel-header'><h3 class='panel-title'>Carrinho de compras</h3><button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
+      "<p style='font-size:13px;color:#6b7280;'>Seu carrinho esta vazio.</p>";
+    return;
+  }
 
-      var itemsHtml = "";
-      var total = 0;
-      for (var i = 0; i < state.cart.length; i++) {
-        var item = state.cart[i];
-        var lineTotal = item.product.price * item.quantity;
-        total += lineTotal;
-        var currentStock = getStock(item.product.id);
-        var atMax = (currentStock !== Infinity && item.quantity >= currentStock);
-        var stockInfo = currentStock !== Infinity ? " <span style='color:#9ca3af;'>(max: " + currentStock + ")</span>" : "";
-        itemsHtml +=
-          "<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:13px;'>" +
-            "<div>" +
-              "<div style='font-weight:500;'>" + item.product.name + "</div>" +
-              "<div style='color:#6b7280;'>Qtd: " + item.quantity + stockInfo + "</div>" +
-            "</div>" +
-            "<div style='display:flex;align-items:center;gap:6px;'>" +
-              "<button style='width:24px;height:24px;border-radius:999px;border:1px solid #d1d5db;background:#f9fafb;cursor:pointer;' onclick='changeCartQty(" + i + ",-1)'>-</button>" +
-              "<span>" + item.quantity + "</span>" +
-              "<button style='width:24px;height:24px;border-radius:999px;border:1px solid #d1d5db;background:" + (atMax ? "#e5e7eb" : "#f9fafb") + ";cursor:" + (atMax ? "not-allowed" : "pointer") + ";' onclick='changeCartQty(" + i + ",1)'" + (atMax ? " disabled" : "") + ">+</button>" +
-              "<div style='font-weight:600;color:#1d4ed8;margin-left:8px;'>R$ " +
-                lineTotal.toFixed(2).replace('.', ',') +
-              "</div>" +
-            "</div>" +
-          "</div>";
-      }
+  var itemsHtml = "";
+  var total = 0;
+  for (var i = 0; i < state.cart.length; i++) {
+    var item = state.cart[i];
+    var lineTotal = item.product.price * item.quantity;
+    total += lineTotal;
+    var currentStock = getStock(item.product.id);
+    var atMax = (currentStock !== Infinity && item.quantity >= currentStock);
+    var stockInfo = currentStock !== Infinity ? " <span style='color:#9ca3af;'>(max: " + currentStock + ")</span>" : "";
+    itemsHtml +=
+      "<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:13px;'>" +
+        "<div>" +
+          "<div style='font-weight:500;'>" + item.product.name + "</div>" +
+          "<div style='color:#6b7280;'>Qtd: " + item.quantity + stockInfo + "</div>" +
+        "</div>" +
+        "<div style='display:flex;align-items:center;gap:6px;'>" +
+          "<button style='width:24px;height:24px;border-radius:999px;border:1px solid #d1d5db;background:#f9fafb;cursor:pointer;' onclick='changeCartQty(" + i + ",-1)'>-</button>" +
+          "<span>" + item.quantity + "</span>" +
+          "<button style='width:24px;height:24px;border-radius:999px;border:1px solid #d1d5db;background:" + (atMax ? "#e5e7eb" : "#f9fafb") + ";cursor:" + (atMax ? "not-allowed" : "pointer") + ";' onclick='changeCartQty(" + i + ",1)'" + (atMax ? " disabled" : "") + ">+</button>" +
+          "<div style='font-weight:600;color:#1d4ed8;margin-left:8px;'>R$ " +
+            lineTotal.toFixed(2).replace('.', ',') +
+          "</div>" +
+        "</div>" +
+      "</div>";
+  }
 
-      panel.innerHTML =
-        "<div class='panel-header'><h3 class='panel-title'>Carrinho de compras</h3><button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
-        "<div>" + itemsHtml + "</div>" +
-        "<hr style='border:none;border-top:1px solid #e5e7eb;margin:10px 0;' />" +
-        "<div style='display:flex;justify-content:space-between;align-items:center;font-size:14px;margin-bottom:10px;'>" +
-        "<span>Total</span><strong>R$ " + total.toFixed(2).replace('.', ',') + "</strong></div>" +
-        "<button class='btn-primary' style='width:100%;' onclick='showTermsBeforePix()'><i class='fa-brands fa-pix' style='margin-right:6px;'></i>Finalizar por Pix</button>" +
-        "<button class='btn-primary' style='width:100%;margin-top:8px;background:#7c3aed;' onclick='showTermsBeforeCard()'><i class='fa-regular fa-credit-card' style='margin-right:6px;'></i>Finalizar por Cartão de Crédito</button>" +
-        "<p style='font-size:11px;color:#6b7280;margin-top:6px;'>O pagamento e processado via Mercado Pago. Depois da confirmacao, voce recebe acesso imediato.</p>";
-    }
+  panel.innerHTML =
+    "<div class='panel-header'><h3 class='panel-title'>Carrinho de compras</h3><button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
+    "<div>" + itemsHtml + "</div>" +
+    "<hr style='border:none;border-top:1px solid #e5e7eb;margin:10px 0;' />" +
+    "<div style='display:flex;justify-content:space-between;align-items:center;font-size:14px;margin-bottom:10px;'>" +
+    "<span>Total</span><strong>R$ " + total.toFixed(2).replace('.', ',') + "</strong></div>" +
+    "<button class='btn-primary' style='width:100%;' onclick='showTermsBeforePix()'><i class='fa-brands fa-pix' style='margin-right:6px;'></i>Finalizar por Pix</button>" +
+    "<button class='btn-primary' style='width:100%;margin-top:8px;background:#7c3aed;' onclick='showTermsBeforeCard()'><i class='fa-regular fa-credit-card' style='margin-right:6px;'></i>Finalizar por Cartão de Crédito</button>" +
+    "<button class='btn-primary' style='width:100%;margin-top:8px;background:#f7931a;' onclick='showTermsBeforeCrypto()'><i class='fa-brands fa-bitcoin' style='margin-right:6px;'></i>Finalizar por Cripto</button>" +
+    "<p style='font-size:11px;color:#6b7280;margin-top:6px;'>O pagamento e processado via Mercado Pago ou ZeroCryptoPay. Depois da confirmacao, voce recebe acesso imediato.</p>";
+}
 
     function changeCartQty(index, delta) {
       var item = state.cart[index];
