@@ -1081,36 +1081,49 @@ async function payWithCrypto() {
   }, 0);
   totalBrl = Math.round(totalBrl * 100) / 100;
 
-  // Tela de "Carregando cotação..." enquanto busca
+  // Tela de "Carregando..."
   panel.innerHTML =
     "<div class='panel-header'><h3 class='panel-title'>Pagamento por Cripto</h3>" +
     "<button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
     "<div style='text-align:center;padding:40px 20px;color:#6b7280;'>" +
       "<i class='fa-solid fa-spinner fa-spin' style='font-size:24px;margin-bottom:12px;color:#f7931a;'></i>" +
-      "<p style='font-size:13px;'>Obtendo cotação do USDT em tempo real...</p>" +
+      "<p style='font-size:13px;'>Obtendo cotação em tempo real...</p>" +
     "</div>";
 
-  // 2. Busca cotação USDT/BRL com fallback automático
-  var usdtRate = 5.60; // Cotação de reserva (caso a API falhe)
+  var usdtRate = 5.20; // Reserva final se ambas falharem
 
   try {
-    // API 1: AwesomeAPI (Cotação Comercial USDT -> BRL)
-    var res = await fetch("https://economia.awesomeapi.com.br/json/last/USDT-BRL");
-    if (res.ok) {
-      var data = await res.json();
-      if (data.USDTBRL && data.USDTBRL.bid) {
-        usdtRate = parseFloat(data.USDTBRL.bid);
+    // Tentativa 1: Binance Public API (USDT/BRL)
+    var resBinance = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=USDTBRL");
+    if (resBinance.ok) {
+      var dataBinance = await resBinance.json();
+      if (dataBinance && dataBinance.price) {
+        usdtRate = parseFloat(dataBinance.price);
       }
+    } else {
+      throw new Error("Binance indisponível");
     }
-  } catch (err) {
-    // Se falhar (CORS, offline, etc), usdtRate continua 5.60 silenciosamente sem dar erro na tela
-    console.warn("Falha ao buscar API, usando cotação padrão:", err);
+  } catch (err1) {
+    console.warn("Binance falhou, tentando CoinGecko...", err1);
+    
+    try {
+      // Tentativa 2: CoinGecko API (Tether -> BRL)
+      var resGecko = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=brl");
+      if (resGecko.ok) {
+        var dataGecko = await resGecko.json();
+        if (dataGecko.tether && dataGecko.tether.brl) {
+          usdtRate = parseFloat(dataGecko.tether.brl);
+        }
+      }
+    } catch (err2) {
+      console.warn("CoinGecko também falhou, usando cotação padrão de segurança.", err2);
+    }
   }
 
-  // 3. Cálculo do valor final
+  // 3. Cálculo final
   var totalUsdt = (totalBrl / usdtRate).toFixed(2);
 
-  // 4. Renderização final do Painel
+  // 4. Renderização do Painel
   panel.innerHTML =
     "<div class='panel-header'><h3 class='panel-title'>Pagamento por Cripto</h3>" +
     "<button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
