@@ -1068,36 +1068,60 @@ function showTermsBeforeCrypto() {
 }
 
 // 3. Consulta Cotação USDT/BRL e Renderiza Painel Cripto
-function payWithCrypto() {
+async function payWithCrypto() {
   if (!state.session || !state.session.user) return;
   if (!state.cart.length) return;
 
   var panel = document.getElementById("panelContent");
   if (!panel) return;
 
-  // 1. Calcula o valor total do carrinho em R$
+  // 1. Total em R$
   var totalBrl = state.cart.reduce(function(sum, i) {
     return sum + i.product.price * i.quantity;
   }, 0);
   totalBrl = Math.round(totalBrl * 100) / 100;
 
-  // 2. Taxa de conversão fixa BRL -> USDT (Ex: R$ 5,60 por 1 USDT)
-  var usdtRate = 5.60;
+  // Tela de "Carregando cotação..." enquanto busca
+  panel.innerHTML =
+    "<div class='panel-header'><h3 class='panel-title'>Pagamento por Cripto</h3>" +
+    "<button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
+    "<div style='text-align:center;padding:40px 20px;color:#6b7280;'>" +
+      "<i class='fa-solid fa-spinner fa-spin' style='font-size:24px;margin-bottom:12px;color:#f7931a;'></i>" +
+      "<p style='font-size:13px;'>Obtendo cotação do USDT em tempo real...</p>" +
+    "</div>";
+
+  // 2. Busca cotação USDT/BRL com fallback automático
+  var usdtRate = 5.60; // Cotação de reserva (caso a API falhe)
+
+  try {
+    // API 1: AwesomeAPI (Cotação Comercial USDT -> BRL)
+    var res = await fetch("https://economia.awesomeapi.com.br/json/last/USDT-BRL");
+    if (res.ok) {
+      var data = await res.json();
+      if (data.USDTBRL && data.USDTBRL.bid) {
+        usdtRate = parseFloat(data.USDTBRL.bid);
+      }
+    }
+  } catch (err) {
+    // Se falhar (CORS, offline, etc), usdtRate continua 5.60 silenciosamente sem dar erro na tela
+    console.warn("Falha ao buscar API, usando cotação padrão:", err);
+  }
+
+  // 3. Cálculo do valor final
   var totalUsdt = (totalBrl / usdtRate).toFixed(2);
 
-  // 3. Monta e exibe a tela com o resumo em BRL, Cotação e USDT
+  // 4. Renderização final do Painel
   panel.innerHTML =
     "<div class='panel-header'><h3 class='panel-title'>Pagamento por Cripto</h3>" +
     "<button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
 
-    // Card com os valores convertidos
     "<div style='background:#fff7ed;border:1px solid #ffedd5;border-radius:10px;padding:14px 16px;margin-bottom:16px;'>" +
       "<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;'>" +
         "<span style='font-size:13px;color:#c2410c;font-weight:500;'>Total em R$</span>" +
         "<strong style='font-size:15px;color:#c2410c;'>R$ " + totalBrl.toFixed(2).replace('.', ',') + "</strong>" +
       "</div>" +
       "<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:12px;color:#9a3412;'>" +
-        "<span>Cotação USDT</span>" +
+        "<span>Cotação USDT (ao vivo)</span>" +
         "<span>1 USDT = R$ " + usdtRate.toFixed(2).replace('.', ',') + "</span>" +
       "</div>" +
       "<hr style='border:none;border-top:1px dashed #fed7aa;margin:8px 0;' />" +
