@@ -1008,7 +1008,98 @@ if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
     "<button class='btn-primary' style='width:100%;margin-top:8px;background:#f7931a;' onclick='showTermsBeforeCrypto()'><i class='fa-brands fa-bitcoin' style='margin-right:6px;'></i>Finalizar por Cripto</button>" +
     "<p style='font-size:11px;color:#6b7280;margin-top:6px;'>O pagamento e processado via Mercado Pago ou ZeroCryptoPay. Depois da confirmacao, voce recebe acesso imediato.</p>";
 }
+    // Pagamento por Criptomoedas - ZeroCryptoPay
+function showTermsBeforeCrypto() {
+  if (!state.session || !state.session.user) {
+    alert("Você precisa estar logado para finalizar a compra.");
+    openPanel("conta");
+    return;
+  }
+  if (!state.cart.length) return;
 
+  var overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9999;display:flex;align-items:center;justify-content:center;";
+  overlay.innerHTML =
+    "<div style='background:#fff;border-radius:16px;padding:28px 24px;max-width:460px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto;'>" +
+      "<h3 style='font-size:17px;font-weight:700;margin-bottom:14px;'>Termos da compra</h3>" +
+      "<div style='background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px;font-size:12px;color:#374151;line-height:1.8;margin-bottom:16px;max-height:220px;overflow-y:auto;'>" +
+        "<strong>1. Produtos digitais</strong><br>Todos os produtos vendidos nesta plataforma são de natureza digital. Após a confirmação do pagamento, o acesso é liberado imediatamente e de forma irrevogável.<br><br>" +
+        "<strong>2. Política de devolução</strong><br>Solicitações de devolução são aceitas em até 24 horas após a compra, desde que o produto não tenha sido alterado. O reembolso será processado em até 5 dias úteis.<br><br>" +
+        "<strong>3. Uso permitido</strong><br>Os produtos adquiridos são de uso pessoal e intransferível. É proibida a redistribuição, revenda ou compartilhamento sem autorização prévia.<br><br>" +
+        "<strong>4. Pagamento em Criptomoedas</strong><br>Você será redirecionado ao ambiente seguro do ZeroCryptoPay para concluir o pagamento.<br><br>" +
+        "<strong>5. Suporte</strong><br>Em caso de dúvidas ou problemas, entre em contato pelo canal de mensagens da plataforma." +
+      "</div>" +
+      "<label style='display:flex;align-items:center;gap:10px;font-size:13px;color:#374151;cursor:pointer;margin-bottom:18px;'>" +
+        "<input type='checkbox' id='termsCheckCrypto' style='width:16px;height:16px;cursor:pointer;'>" +
+        "<span>Li e aceito os termos da compra</span>" +
+      "</label>" +
+      "<div style='display:flex;gap:10px;'>" +
+        "<button id='termsCancelCrypto' style='flex:1;padding:10px;border-radius:8px;border:1px solid #e5e7eb;background:#f9fafb;font-size:13px;font-weight:600;cursor:pointer;'>Cancelar</button>" +
+        "<button id='termsConfirmCrypto' style='flex:1;padding:10px;border-radius:8px;border:none;background:#9ca3af;color:#fff;font-size:13px;font-weight:600;cursor:not-allowed;' disabled>Ir para pagamento</button>" +
+      "</div>" +
+    "</div>";
+  document.body.appendChild(overlay);
+
+  var checkbox = overlay.querySelector("#termsCheckCrypto");
+  var confirmBtn = overlay.querySelector("#termsConfirmCrypto");
+
+  checkbox.onchange = function() {
+    if (checkbox.checked) {
+      confirmBtn.style.background = "#f7931a";
+      confirmBtn.style.cursor = "pointer";
+      confirmBtn.disabled = false;
+    } else {
+      confirmBtn.style.background = "#9ca3af";
+      confirmBtn.style.cursor = "not-allowed";
+      confirmBtn.disabled = true;
+    }
+  };
+
+  overlay.querySelector("#termsCancelCrypto").onclick = function() {
+    document.body.removeChild(overlay);
+  };
+
+  confirmBtn.onclick = function() {
+    document.body.removeChild(overlay);
+    payWithCrypto();
+  };
+}
+
+function payWithCrypto() {
+  if (!state.session || !state.session.user) return;
+  if (!state.cart.length) return;
+
+  var panel = document.getElementById("panelContent");
+
+  var total = state.cart.reduce(function(sum, i) {
+    return sum + i.product.price * i.quantity;
+  }, 0);
+  total = Math.round(total * 100) / 100;
+
+  panel.innerHTML =
+    "<div class='panel-header'><h3 class='panel-title'>Pagamento por Cripto</h3>" +
+    "<button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
+
+    "<div style='background:#fff7ed;border:1px solid #ffedd5;border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;'>" +
+      "<span style='font-size:13px;color:#c2410c;font-weight:500;'>Total a pagar</span>" +
+      "<strong style='font-size:18px;color:#c2410c;'>R$ " + total.toFixed(2).replace('.', ',') + "</strong>" +
+    "</div>" +
+
+    "<div style='text-align:center;margin-bottom:20px;'>" +
+      "<div style='width:72px;height:72px;background:#fff7ed;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;'>" +
+        "<i class='fa-brands fa-bitcoin' style='font-size:32px;color:#f7931a;'></i>" +
+      "</div>" +
+      "<p style='font-size:13px;color:#374151;font-weight:600;margin-bottom:6px;'>Tudo pronto!</p>" +
+      "<p style='font-size:12px;color:#6b7280;line-height:1.6;'>Você será redirecionado ao ambiente seguro do <strong>ZeroCryptoPay</strong> para concluir o pagamento em criptomoedas.</p>" +
+    "</div>" +
+
+    "<a href='https://zerocryptopay.com' target='_blank' " +
+      "style='display:block;width:100%;padding:12px;border-radius:10px;border:none;background:#f7931a;color:#fff;font-size:14px;font-weight:600;cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box;'>" +
+      "<i class='fa-solid fa-arrow-up-right-from-square' style='margin-right:6px;'></i>Ir para o ZeroCryptoPay" +
+    "</a>" +
+    "<p style='font-size:11px;color:#9ca3af;text-align:center;margin-top:8px;'>Uma nova aba será aberta. Após o pagamento, volte aqui e verifique suas compras.</p>";
+}
+    
     function changeCartQty(index, delta) {
       var item = state.cart[index];
       if (!item) return;
