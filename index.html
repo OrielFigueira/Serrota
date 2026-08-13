@@ -1161,7 +1161,7 @@ async function payWithCrypto() {
 }
 
 // 4. Redirecionamento Final
-async function generateCryptoInvoice(amountUsdt, productOrCart) {
+async function generateCryptoInvoice(amountUsdt) {
   var panel = document.getElementById("panelContent");
 
   panel.innerHTML =
@@ -1174,13 +1174,14 @@ async function generateCryptoInvoice(amountUsdt, productOrCart) {
   var paymentWindow = window.open("about:blank", "_blank");
 
   try {
-    // 1. OBTÉM O USUÁRIO LOGADO
+    // 1. OBTÉM USUÁRIO LOGADO
     let userId = null;
-    
     if (typeof user !== "undefined" && user && user.id) {
       userId = user.id;
     } else if (typeof currentUser !== "undefined" && currentUser && currentUser.id) {
       userId = currentUser.id;
+    } else if (typeof state !== "undefined" && state.user && state.user.id) {
+      userId = state.user.id;
     } else if (typeof supabaseClient !== "undefined" && supabaseClient.auth) {
       const { data } = await supabaseClient.auth.getUser();
       userId = data?.user?.id;
@@ -1197,67 +1198,45 @@ async function generateCryptoInvoice(amountUsdt, productOrCart) {
 
     const sb = (typeof supabaseClient !== "undefined") ? supabaseClient : supabase;
 
-    // 2. EXTRAI OS PRODUCT IDS DE FORMA COMPLETA
+    // 2. EXTRAI OS PRODUCT IDS DE STATE.CART (RESPEITANDO A QUANTIDADE)
     let productIdsArray = [];
-
-    // Tenta pegar do parâmetro ou de variáveis globais do modal (ex: selectedProduct, currentProductId, etc)
-    const activeProduct = productOrCart || 
-                          (typeof selectedProduct !== "undefined" ? selectedProduct : null) || 
-                          (typeof currentProduct !== "undefined" ? currentProduct : null) ||
-                          (typeof cart !== "undefined" ? cart : null) ||
-                          (typeof carrinho !== "undefined" ? carrinho : null);
-
-    if (activeProduct) {
-      if (Array.isArray(activeProduct)) {
-        productIdsArray = activeProduct.map(item => typeof item === 'object' && item !== null ? (item.id || item.product_id) : item);
-      } else if (typeof activeProduct === 'object' && activeProduct !== null) {
-        productIdsArray = [activeProduct.id || activeProduct.product_id || activeProduct];
-      } else {
-        productIdsArray = [activeProduct];
-      }
+    if (typeof state !== "undefined" && Array.isArray(state.cart)) {
+      state.cart.forEach(item => {
+        const prodId = item.product ? item.product.id : (item.id || item);
+        const qty = item.quantity || 1;
+        for (let q = 0; q < qty; q++) {
+          productIdsArray.push(prodId);
+        }
+      });
     }
 
-    // Se ainda estiver vazio, tenta ler o atributo data-id da tela/modal se disponível
-    if (productIdsArray.length === 0) {
-      const modalProd = document.querySelector("[data-product-id]");
-      if (modalProd) {
-        productIdsArray = [modalProd.getAttribute("data-product-id")];
-      }
-    }
+    console.log("Enviando ordem no Supabase:", { userId, productIdsArray, total: amountUsdt });
 
-    console.log("Criando ordem Cripto no Supabase:", {
-      userId,
-      productIdsArray,
-      amountUsdt
-    });
-
-    // 3. REGISTRA A ORDEM COM O MÉTODO CRIPTO E OS PRODUTOS
-    const orderPayload = {
-      user_id: userId,
-      product_ids: productIdsArray,
-      total: amountUsdt,
-      status: "unpaid",
-      payment_method: "crypto", // Mapeia o método de pagamento
-      method: "crypto"          // Garante compatibilidade caso o nome do campo seja 'method'
-    };
-
+    // 3. REGISTRA A ORDEM COM PRODUCT_IDS E PAYMENT_METHOD
     const { data: orderData, error: orderError } = await sb
       .from("orders")
-      .insert(orderPayload)
+      .insert({
+        user_id: userId,
+        product_ids: productIdsArray,
+        total: amountUsdt,
+        status: "unpaid",
+        payment_method: "crypto",
+        method: "crypto"
+      })
       .select("id")
       .single();
 
     if (orderError || !orderData) {
       paymentWindow.close();
-      console.error("Erro ao criar order no Supabase:", orderError);
-      alert("Erro ao registrar pedido no banco: " + (orderError?.message || "Erro de permissão"));
+      console.error("Erro no Supabase:", orderError);
+      alert("Erro ao registrar pedido: " + (orderError?.message || "Erro de permissão"));
       return;
     }
 
     const realOrderId = String(orderData.id);
-    console.log("Order gerada no Supabase com Sucesso! ID:", realOrderId);
+    console.log("Ordem gerada com sucesso! ID:", realOrderId);
 
-    // 4. CHAMA O PROXY NO RENDER
+    // 4. CHAMA O PROXY NO RENDER PASSANDO O ID REAL
     const response = await fetch("https://zerocrypto-proxy.onrender.com/create-invoice", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1286,7 +1265,7 @@ async function generateCryptoInvoice(amountUsdt, productOrCart) {
 
   } catch (error) {
     if (paymentWindow) paymentWindow.close();
-    console.error("Erro no fluxo Cripto:", error);
+    console.error("Erro Cripto:", error);
     alert("Falha ao processar o pagamento: " + error.message);
   }
 }
