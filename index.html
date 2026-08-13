@@ -1197,45 +1197,53 @@ async function generateCryptoInvoice(amountUsdt, productOrCart) {
 
     const sb = (typeof supabaseClient !== "undefined") ? supabaseClient : supabase;
 
-    // 2. DETECTA E EXTRAI OS PRODUCT IDS DO CARRINHO / PRODUTO
+    // 2. EXTRAI OS PRODUCT IDS DE FORMA COMPLETA
     let productIdsArray = [];
 
-    // Se o argumento foi passado diretamente para a função
-    if (productOrCart) {
-      if (Array.isArray(productOrCart)) {
-        productIdsArray = productOrCart.map(item => (typeof item === 'object' && item !== null ? item.id : item));
-      } else if (typeof productOrCart === 'object') {
-        productIdsArray = [productOrCart.id];
-      } else {
-        productIdsArray = [productOrCart];
-      }
-    } else {
-      // Se não passou argumento, tenta buscar nas variáveis globais do site
-      const currentCart = (typeof cart !== "undefined") ? cart :
-                          (typeof carrinho !== "undefined") ? carrinho :
-                          (typeof cartItems !== "undefined") ? cartItems :
-                          (typeof selectedProduct !== "undefined") ? selectedProduct : [];
+    // Tenta pegar do parâmetro ou de variáveis globais do modal (ex: selectedProduct, currentProductId, etc)
+    const activeProduct = productOrCart || 
+                          (typeof selectedProduct !== "undefined" ? selectedProduct : null) || 
+                          (typeof currentProduct !== "undefined" ? currentProduct : null) ||
+                          (typeof cart !== "undefined" ? cart : null) ||
+                          (typeof carrinho !== "undefined" ? carrinho : null);
 
-      if (Array.isArray(currentCart)) {
-        productIdsArray = currentCart.map(item => (typeof item === 'object' && item !== null ? item.id : item));
-      } else if (typeof currentCart === 'object' && currentCart !== null) {
-        productIdsArray = [currentCart.id || currentCart];
-      } else if (currentCart) {
-        productIdsArray = [currentCart];
+    if (activeProduct) {
+      if (Array.isArray(activeProduct)) {
+        productIdsArray = activeProduct.map(item => typeof item === 'object' && item !== null ? (item.id || item.product_id) : item);
+      } else if (typeof activeProduct === 'object' && activeProduct !== null) {
+        productIdsArray = [activeProduct.id || activeProduct.product_id || activeProduct];
+      } else {
+        productIdsArray = [activeProduct];
       }
     }
 
-    // 3. CRIA A ORDER NO SUPABASE
-    console.log("Criando ordem no Supabase para o usuário:", userId, "Produtos:", productIdsArray);
-    
+    // Se ainda estiver vazio, tenta ler o atributo data-id da tela/modal se disponível
+    if (productIdsArray.length === 0) {
+      const modalProd = document.querySelector("[data-product-id]");
+      if (modalProd) {
+        productIdsArray = [modalProd.getAttribute("data-product-id")];
+      }
+    }
+
+    console.log("Criando ordem Cripto no Supabase:", {
+      userId,
+      productIdsArray,
+      amountUsdt
+    });
+
+    // 3. REGISTRA A ORDEM COM O MÉTODO CRIPTO E OS PRODUTOS
+    const orderPayload = {
+      user_id: userId,
+      product_ids: productIdsArray,
+      total: amountUsdt,
+      status: "unpaid",
+      payment_method: "crypto", // Mapeia o método de pagamento
+      method: "crypto"          // Garante compatibilidade caso o nome do campo seja 'method'
+    };
+
     const { data: orderData, error: orderError } = await sb
       .from("orders")
-      .insert({
-        user_id: userId,
-        product_ids: productIdsArray,
-        total: amountUsdt,
-        status: "unpaid"
-      })
+      .insert(orderPayload)
       .select("id")
       .single();
 
