@@ -1161,35 +1161,59 @@ async function payWithCrypto() {
 }
 
 // 4. Redirecionamento Final
-async function processarPagamentoSeguro() {
-  // 1. Abre a aba em branco no momento EXATO do clique do usuário (o navegador libera)
-  const novaAba = window.open("", "_blank");
+function generateCryptoInvoice(amountUsdt) {
+  var panel = document.getElementById("panelContent");
 
-  try {
-    const response = await fetch("https://SEU-APP-NO-RENDER.onrender.com/create-invoice", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        amount: valorDoProduto,
-        order_id: "ORD-" + Date.now()
-      })
-    });
+  panel.innerHTML =
+    "<div class='panel-header'><h3 class='panel-title'>Gerando Fatura...</h3></div>" +
+    "<div style='text-align:center;padding:40px 20px;color:#6b7280;'>" +
+      "<i class='fa-solid fa-spinner fa-spin' style='font-size:24px;margin-bottom:12px;color:#f7931a;'></i>" +
+      "<p style='font-size:13px;'>Criando fatura de " + amountUsdt + " USDT no ZeroCryptoPay...</p>" +
+    "</div>";
 
-    const data = await response.json();
+  // 1. ABRIR A ABA IMEDIATAMENTE (Sincrono no clique direto do usuario - 0% de bloqueio)
+  var paymentWindow = window.open("about:blank", "_blank");
 
+  var orderId = "ORD-" + Date.now();
+
+  // 2. FAZER A REQUISIÇÃO
+  fetch("https://zerocrypto-proxy.onrender.com/create-invoice", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      amount: amountUsdt,
+      order_id: orderId
+    })
+  })
+  .then(function(response) {
+    return response.json();
+  })
+  .then(function(data) {
     if (data.status && data.url_to_pay) {
-      // 2. Redireciona a aba que já estava aberta para o checkout do ZeroCryptoPay
-      novaAba.location.href = data.url_to_pay;
+      // Redireciona a aba que já está aberta para o link de pagamento
+      paymentWindow.location.href = data.url_to_pay;
+
+      panel.innerHTML =
+        "<div class='panel-header'><h3 class='panel-title'>Fatura Gerada</h3></div>" +
+        "<div style='text-align:center;padding:30px 20px;color:#374151;'>" +
+          "<i class='fa-solid fa-circle-check' style='font-size:32px;color:#10b981;margin-bottom:12px;'></i>" +
+          "<p style='font-size:14px;font-weight:600;'>A fatura foi aberta em uma nova aba.</p>" +
+          "<p style='font-size:12px;color:#6b7280;margin-top:6px;'>Conclua o pagamento por lá sem fechar esta janela.</p>" +
+        "</div>";
     } else {
-      // Se deu erro, fecha a aba em branco e mostra o alerta
-      novaAba.close();
-      alert("Erro ao gerar pagamento: " + (data.message || "Tente novamente."));
+      paymentWindow.close();
+      alert("Erro ao gerar pagamento: " + (data.message || "Erro desconhecido"));
+      if (typeof payWithCrypto === "function") payWithCrypto();
     }
-  } catch (error) {
-    novaAba.close();
-    console.error("Erro na requisição:", error);
+  })
+  .catch(function(error) {
+    if (paymentWindow) paymentWindow.close();
+    console.error("Erro na API:", error);
     alert("Falha ao se comunicar com o servidor de pagamento.");
-  }
+    if (typeof payWithCrypto === "function") payWithCrypto();
+  });
 }
     
     function changeCartQty(index, delta) {
