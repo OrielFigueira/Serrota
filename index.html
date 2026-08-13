@@ -1161,46 +1161,34 @@ async function payWithCrypto() {
 }
 
 // 4. Redirecionamento Final
-async function generateCryptoInvoice(amountUsdt) {
-  var panel = document.getElementById("panelContent");
-
-  panel.innerHTML =
-    "<div class='panel-header'><h3 class='panel-title'>Gerando Fatura...</h3></div>" +
-    "<div style='text-align:center;padding:40px 20px;color:#6b7280;'>" +
-      "<i class='fa-solid fa-spinner fa-spin' style='font-size:24px;margin-bottom:12px;color:#f7931a;'></i>" +
-      "<p style='font-size:13px;'>Criando fatura de " + amountUsdt + " USDT no ZeroCryptoPay...</p>" +
-    "</div>";
+async function processarPagamentoSeguro() {
+  // 1. Abre a aba em branco no momento EXATO do clique do usuário (o navegador libera)
+  const novaAba = window.open("", "_blank");
 
   try {
-    var orderId = "ORD-" + Date.now();
-
-    // Chamada direta para o servidor intermediário no Render
-    var response = await fetch("https://zerocrypto-proxy.onrender.com/create-invoice", {
+    const response = await fetch("https://SEU-APP-NO-RENDER.onrender.com/create-invoice", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        amount: amountUsdt,
-        order_id: orderId
+        amount: valorDoProduto,
+        order_id: "ORD-" + Date.now()
       })
     });
 
-    var data = await response.json();
+    const data = await response.json();
 
     if (data.status && data.url_to_pay) {
-      window.location.href = data.url_to_pay;
+      // 2. Redireciona a aba que já estava aberta para o checkout do ZeroCryptoPay
+      novaAba.location.href = data.url_to_pay;
     } else {
-      throw new Error(data.message || "Erro retornado pela API (Código: " + data.error_code + ")");
+      // Se deu erro, fecha a aba em branco e mostra o alerta
+      novaAba.close();
+      alert("Erro ao gerar pagamento: " + (data.message || "Tente novamente."));
     }
-
   } catch (error) {
-    console.error("Erro na API:", error);
-    alert("Falha ao gerar o pagamento: " + error.message);
-    
-    if (typeof payWithCrypto === "function") {
-      payWithCrypto();
-    }
+    novaAba.close();
+    console.error("Erro na requisição:", error);
+    alert("Falha ao se comunicar com o servidor de pagamento.");
   }
 }
     
