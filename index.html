@@ -1329,7 +1329,13 @@ async function generateCryptoInvoice(amountUsdt) {
           "<i class='fa-solid fa-circle-check' style='font-size:32px;color:#10b981;margin-bottom:12px;'></i>" +
           "<p style='font-size:14px;font-weight:600;'>A fatura foi aberta em uma nova aba.</p>" +
           "<p style='font-size:12px;color:#6b7280;margin-top:6px;'>Conclua o pagamento por lá sem fechar esta janela.</p>" +
+          "<div id='cryptoStatus' style='margin-top:14px;font-size:12px;font-weight:600;color:#d97706;'><i class='fa-regular fa-clock'></i> Aguardando confirmação do pagamento...</div>" +
         "</div>";
+
+      // Iniciar polling de status para detectar quando o pagamento cripto for confirmado
+      if (realOrderId) {
+        startCryptoPolling(realOrderId);
+      }
     } else {
       paymentWindow.close();
       alert("Erro ao gerar pagamento: " + (data.message || "Erro no provedor"));
@@ -1590,6 +1596,47 @@ async function generateCryptoInvoice(amountUsdt) {
       if (pixPollInterval) {
         clearInterval(pixPollInterval);
         pixPollInterval = null;
+      }
+    }
+
+    // ─── Polling de status para pagamento via Cripto ──────────────────
+    // Espelha o mesmo padrão do Pix, mas com variável de intervalo própria
+    // para não interferir no fluxo do Pix.
+    var cryptoPollInterval = null;
+
+    function startCryptoPolling(orderId) {
+      stopCryptoPolling();
+      cryptoPollInterval = setInterval(async function() {
+        try {
+          if (!supabaseClient || !orderId) return;
+          var result = await supabaseClient
+            .from("orders")
+            .select("status")
+            .eq("id", orderId)
+            .single();
+
+          if (!result.data) return;
+
+          if (result.data.status === "paid") {
+            stopCryptoPolling();
+            sendOrderPaidNotification(orderId);
+            loadProducts();
+            showPixSuccess();
+          } else if (result.data.status === "failed") {
+            stopCryptoPolling();
+            var statusEl = document.getElementById("cryptoStatus");
+            if (statusEl) statusEl.innerHTML = "<span style='color:#ef4444;'>Pagamento recusado</span>";
+          }
+        } catch(e) {
+          console.warn("Erro no polling cripto:", e);
+        }
+      }, 5000);
+    }
+
+    function stopCryptoPolling() {
+      if (cryptoPollInterval) {
+        clearInterval(cryptoPollInterval);
+        cryptoPollInterval = null;
       }
     }
 
