@@ -1613,7 +1613,7 @@ async function generateCryptoInvoice(amountUsdt) {
 	  stopCryptoPolling();
 	  cryptoPollInterval = setInterval(async function() {
 	    try {
-	      const response = await fetch("https://<SEU-PROJETO>.supabase.co/functions/v1/confirm-crypto-payment", {
+	      const response = await fetch("https://tgtphaevkztzgekfhquu.supabase.co/functions/v1/confirm-crypto-payment", {
 	        method: "POST",
 	        headers: { "Content-Type": "application/json" },
 	        body: JSON.stringify({ order_id: orderId, id_track: idTrack, hash_trans: hashTrans })
