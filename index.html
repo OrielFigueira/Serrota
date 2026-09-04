@@ -1322,7 +1322,12 @@ async function generateCryptoInvoice(amountUsdt) {
 
     if (data.status && data.url_to_pay) {
       paymentWindow.location.href = data.url_to_pay;
-
+      
+      await sb
+	  .from("orders")
+	  .update({ crypto_id_track: data.id, crypto_hash_trans: data.hash_trans })
+	  .eq("id", realOrderId);
+		
       panel.innerHTML =
         "<div class='panel-header'><h3 class='panel-title'>Fatura Gerada</h3></div>" +
         "<div style='text-align:center;padding:30px 20px;color:#374151;'>" +
@@ -1334,7 +1339,7 @@ async function generateCryptoInvoice(amountUsdt) {
 
       // Iniciar polling de status para detectar quando o pagamento cripto for confirmado
       if (realOrderId) {
-        startCryptoPolling(realOrderId);
+        startCryptoPolling(realOrderId, data.id, data.hash_trans);;
       }
     } else {
       paymentWindow.close();
