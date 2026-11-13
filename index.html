@@ -2199,107 +2199,193 @@ async function generateCryptoInvoice(amountUsdt) {
 
     var CHECKOUT_FUNCTION_URL = "https://tgtphaevkztzgekfhquu.supabase.co/functions/v1/create-checkout";
 
-    async function payWithCard() {
+     async function payWithCard() {
+
       if (!state.session || !state.session.user) return;
+
       if (!state.cart.length) return;
+
 
       var panel = document.getElementById("panelContent");
 
+
       var items = state.cart.map(function(i) {
+
         return {
+
           id: i.product.id,
+
           name: i.product.name,
+
           quantity: i.quantity,
+
           unit_price: i.product.price
+
         };
+
       });
 
+
       var originalTotal = state.cart.reduce(function(sum, i) {
+
         return sum + i.product.price * i.quantity;
+
       }, 0);
 
+
       // Acréscimo de 5.24% (105.24% do valor original)
+
       var total = originalTotal * 1.0524;
+
       total = Math.round(total * 100) / 100;
 
+
       // Mostrar loading
+
       panel.innerHTML =
+
         "<div class='panel-header'><h3 class='panel-title'>Pagamento por Cartão</h3>" +
+
         "<button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
+
         "<div style='text-align:center;padding:32px 0;'>" +
+
         "<i class='fa-solid fa-spinner fa-spin' style='font-size:32px;color:#7c3aed;'></i>" +
+
         "<p style='margin-top:14px;font-size:14px;color:#6b7280;'>Preparando pagamento...</p></div>";
 
+
       try {
+
         var response = await fetch(CHECKOUT_FUNCTION_URL, {
+
           method: "POST",
+
           headers: {
+
             "Content-Type": "application/json",
+
             "Authorization": "Bearer " + state.session.access_token,
+
             "apikey": SUPABASE_ANON_KEY
+
           },
+
           body: JSON.stringify({
+
             items: items,
+
             total: total,
+
             product_ids: state.cart.map(function(i) {
+
               return { id: i.product.id, quantity: i.quantity };
+
             })
+
           })
+
         });
+
 
         var data = await response.json();
 
+
         if (!response.ok || data.error) {
+
           throw new Error(data.error || "Erro ao criar preferência");
+
         }
 
-        // Mostrar botão para ir ao checkout (Desativado / Preto e Branco)
+
+        // Mostrar botão para ir ao checkout
+
         panel.innerHTML =
+
           "<div class='panel-header'><h3 class='panel-title'>Pagamento por Cartão (acréscimo de 5.24%)</h3>" +
+
           "<button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
+
 
           "<div style='background:#f5f3ff;border:1px solid #ddd6fe;border-radius:0;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;'>" +
+
             "<span style='font-size:13px;color:#7c3aed;font-weight:500;'>Total a pagar</span>" +
+
             "<strong style='font-size:18px;color:#7c3aed;'>R$ " + total.toFixed(2).replace('.', ',') + "</strong>" +
+
           "</div>" +
+
 
           "<div style='text-align:center;margin-bottom:20px;'>" +
+
             "<div style='width:72px;height:72px;background:#f5f3ff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;'>" +
+
               "<i class='fa-solid fa-credit-card' style='font-size:28px;color:#7c3aed;'></i>" +
+
             "</div>" +
+
             "<p style='font-size:13px;color:#374151;font-weight:600;margin-bottom:6px;'>Tudo pronto!</p>" +
-            "<p style='font-size:12px;color:#6b7280;line-height:1.6;'>Pagamento temporariamente indisponível.</p>" +
+
+            "<p style='font-size:12px;color:#6b7280;line-height:1.6;'>Você será redirecionado ao ambiente seguro do Mercado Pago para concluir o pagamento com cartão de crédito.</p>" +
+
           "</div>" +
 
-          // BOTÃO DESATIVADO (Preto e branco + Sem cliques)
-          "<a href='#' onclick='return false;' " +
-            "style='display:block;width:100%;padding:12px;border-radius:0;border:none;background:#7c3aed;color:#fff;font-size:14px;font-weight:600;text-align:center;text-decoration:none;box-sizing:border-box;filter:grayscale(100%);pointer-events:none;opacity:0.6;cursor:not-allowed;'>" +
+
+          "<a href='" + data.checkout_url + "' target='_blank' " +
+
+            "style='display:block;width:100%;padding:12px;border-radius:0;border:none;background:#7c3aed;color:#fff;font-size:14px;font-weight:600;cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box;'>" +
+
             "<i class='fa-solid fa-arrow-up-right-from-square' style='margin-right:6px;'></i>Ir para o Mercado Pago" +
+
           "</a>" +
-          "<p style='font-size:11px;color:#9ca3af;text-align:center;margin-top:8px;'>Função de cartão desativada no momento.</p>" +
+
+          "<p style='font-size:11px;color:#9ca3af;text-align:center;margin-top:8px;'>Uma nova aba será aberta. Após o pagamento, volte aqui e verifique suas compras.</p>" +
+
 
           // Polling para detectar pagamento aprovado
-          "<div id='cardPollStatus' style='margin-top:14px;text-align:center;font-size:12px;color:#6b7280;display:none;'>" +
+
+          "<div id='cardPollStatus' style='margin-top:14px;text-align:center;font-size:12px;color:#6b7280;'>" +
+
             "<i class='fa-regular fa-clock'></i> Aguardando confirmação do pagamento..." +
+
           "</div>";
 
-        // Caso queira impedir completamente o carrinho de limpar enquanto estiver desativado, 
-        // você pode comentar ou remover a linha abaixo se necessário:
-        // state.cart = [];
+
+        // Limpar carrinho e iniciar polling
+
+        state.cart = [];
+
+        if (data.order_id) {
+
+          startCardPolling(data.order_id);
+
+        }
+
 
       } catch (err) {
+
         panel.innerHTML =
+
           "<div class='panel-header'><h3 class='panel-title'>Erro no pagamento</h3>" +
+
           "<button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
+
           "<div style='text-align:center;padding:24px 0;'>" +
+
           "<i class='fa-solid fa-triangle-exclamation' style='font-size:32px;color:#ef4444;'></i>" +
+
           "<p style='margin-top:12px;font-size:14px;color:#374151;font-weight:600;'>Não foi possível iniciar o pagamento</p>" +
+
           "<p style='font-size:13px;color:#6b7280;margin-top:6px;'>" + err.message + "</p>" +
+
           "<button class='btn-primary' style='margin-top:18px;' onclick='renderCartPanel()'>Voltar ao carrinho</button></div>";
+
       }
+
     }
 
-    var cardPollInterval = null;
+
+    var cardPollInterval = null; 
 
     function startCardPolling(orderId) {
       if (cardPollInterval) clearInterval(cardPollInterval);
