@@ -2253,7 +2253,7 @@ async function generateCryptoInvoice(amountUsdt) {
           throw new Error(data.error || "Erro ao criar preferência");
         }
 
-        // Mostrar botão para ir ao checkout
+        // Mostrar botão para ir ao checkout (Desativado / Preto e Branco)
         panel.innerHTML =
           "<div class='panel-header'><h3 class='panel-title'>Pagamento por Cartão (acréscimo de 5.24%)</h3>" +
           "<button class='panel-close' onclick='closePanel()'>&times;</button></div>" +
@@ -2268,25 +2268,24 @@ async function generateCryptoInvoice(amountUsdt) {
               "<i class='fa-solid fa-credit-card' style='font-size:28px;color:#7c3aed;'></i>" +
             "</div>" +
             "<p style='font-size:13px;color:#374151;font-weight:600;margin-bottom:6px;'>Tudo pronto!</p>" +
-            "<p style='font-size:12px;color:#6b7280;line-height:1.6;'>Você será redirecionado ao ambiente seguro do Mercado Pago para concluir o pagamento com cartão de crédito.</p>" +
+            "<p style='font-size:12px;color:#6b7280;line-height:1.6;'>Pagamento temporariamente indisponível.</p>" +
           "</div>" +
 
-          "<a href='" + data.checkout_url + "' target='_blank' " +
-            "style='display:block;width:100%;padding:12px;border-radius:0;border:none;background:#7c3aed;color:#fff;font-size:14px;font-weight:600;cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box;'>" +
+          // BOTÃO DESATIVADO (Preto e branco + Sem cliques)
+          "<a href='#' onclick='return false;' " +
+            "style='display:block;width:100%;padding:12px;border-radius:0;border:none;background:#7c3aed;color:#fff;font-size:14px;font-weight:600;text-align:center;text-decoration:none;box-sizing:border-box;filter:grayscale(100%);pointer-events:none;opacity:0.6;cursor:not-allowed;'>" +
             "<i class='fa-solid fa-arrow-up-right-from-square' style='margin-right:6px;'></i>Ir para o Mercado Pago" +
           "</a>" +
-          "<p style='font-size:11px;color:#9ca3af;text-align:center;margin-top:8px;'>Uma nova aba será aberta. Após o pagamento, volte aqui e verifique suas compras.</p>" +
+          "<p style='font-size:11px;color:#9ca3af;text-align:center;margin-top:8px;'>Função de cartão desativada no momento.</p>" +
 
           // Polling para detectar pagamento aprovado
-          "<div id='cardPollStatus' style='margin-top:14px;text-align:center;font-size:12px;color:#6b7280;'>" +
+          "<div id='cardPollStatus' style='margin-top:14px;text-align:center;font-size:12px;color:#6b7280;display:none;'>" +
             "<i class='fa-regular fa-clock'></i> Aguardando confirmação do pagamento..." +
           "</div>";
 
-        // Limpar carrinho e iniciar polling
-        state.cart = [];
-        if (data.order_id) {
-          startCardPolling(data.order_id);
-        }
+        // Caso queira impedir completamente o carrinho de limpar enquanto estiver desativado, 
+        // você pode comentar ou remover a linha abaixo se necessário:
+        // state.cart = [];
 
       } catch (err) {
         panel.innerHTML =
